@@ -5,32 +5,37 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Store chat history (keeps the last 50 messages in memory)
+# App Metadata & Update Info
+APP_METADATA = {
+    "latest_version": "2.0.0",
+    "download_url": "https://github.com/yourusername/your-repo/releases",  # Replace with your safe download host
+    "update_notes": "New neon styling and performance optimizations!"
+}
+
 chat_history = [
-    {"sender": "System", "message": "Welcome to the chat room!"}
+    {"sender": "[SYSTEM]", "message": "CyberChat Mainframe Online. Keep it lit."}
 ]
 
 @app.route('/')
 def home():
-    return jsonify({"status": "Chat API is running"}), 200
+    return jsonify({"status": "CyberChat API Running"}), 200
 
+# Endpoint to fetch chat history AND update metadata
 @app.route('/data', methods=['GET', 'POST'])
 def handle_chat():
     global chat_history
     if request.method == 'POST':
         try:
             req_data = request.get_json()
-            sender = req_data.get("sender", "Anonymous").strip()
+            sender = req_data.get("sender", "NetRunner").strip()
             message = req_data.get("message", "").strip()
             
             if not message:
-                return jsonify({"status": "error", "message": "Message cannot be empty"}), 400
+                return jsonify({"status": "error", "message": "Void messages rejected."}), 400
                 
-            # Add message to history
             new_chat = {"sender": sender, "message": message}
             chat_history.append(new_chat)
             
-            # Keep history size manageable (last 50 messages)
             if len(chat_history) > 50:
                 chat_history.pop(0)
                 
@@ -38,8 +43,11 @@ def handle_chat():
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
             
-    # GET returns the whole history
-    return jsonify(chat_history), 200
+    # GET returns both history and version info
+    return jsonify({
+        "history": chat_history,
+        "update_info": APP_METADATA
+    }), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
