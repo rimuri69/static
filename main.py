@@ -1,29 +1,44 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import random
+import os
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
-app = FastAPI()
+app = Flask(__name__)
+CORS(app)  # Allows your GUI to connect without CORS blocks
 
-# Allow your GUI app to read this API safely
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# In-memory database to hold the last received code/message
+shared_data = {
+    "code": "NONE",
+    "message": "No data received yet.",
+    "sender": "System"
+}
 
-@app.get("/")
-def read_root():
-    # A read-only API endpoint returning dynamic data
-    quotes = [
-        "Simplify, then add lightness.",
-        "Make it work, make it right, make it fast.",
-        "Before software can be reusable it first has to be usable.",
-        "Computers are good at following instructions, but not at reading your mind."
-    ]
-    return {
-        "status": "online",
-        "api_type": "Read-Only Cloud API",
-        "quote_of_the_day": random.choice(quotes)
-    }
+@app.route('/')
+def home():
+    return jsonify({"status": "API is online", "message": "Go to /data to read/write"}), 200
+
+# This is the endpoint our GUI reads (GET) and writes (POST) to
+@app.route('/data', methods=['GET', 'POST'])
+def handle_data():
+    global shared_data
+    if request.method == 'POST':
+        try:
+            req_data = request.get_json()
+            # Update our "database" with the incoming GUI data
+            shared_data["code"] = req_data.get("code", "N/A")
+            shared_data["message"] = req_data.get("message", "N/A")
+            shared_data["sender"] = req_data.get("sender", "N/A")
+            
+            return jsonify({
+                "status": "success",
+                "received": shared_data
+            }), 201
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+            
+    # GET request returns the last saved code
+    return jsonify(shared_data), 200
+
+if __name__ == '__main__':
+    # Render requires your app to bind to 0.0.0.0 and a dynamic PORT
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
