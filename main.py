@@ -3,42 +3,44 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Allows your GUI to connect without CORS blocks
+CORS(app)
 
-# In-memory database to hold the last received code/message
-shared_data = {
-    "code": "NONE",
-    "message": "No data received yet.",
-    "sender": "System"
-}
+# Store chat history (keeps the last 50 messages in memory)
+chat_history = [
+    {"sender": "System", "message": "Welcome to the chat room!"}
+]
 
 @app.route('/')
 def home():
-    return jsonify({"status": "API is online", "message": "Go to /data to read/write"}), 200
+    return jsonify({"status": "Chat API is running"}), 200
 
-# This is the endpoint our GUI reads (GET) and writes (POST) to
 @app.route('/data', methods=['GET', 'POST'])
-def handle_data():
-    global shared_data
+def handle_chat():
+    global chat_history
     if request.method == 'POST':
         try:
             req_data = request.get_json()
-            # Update our "database" with the incoming GUI data
-            shared_data["code"] = req_data.get("code", "N/A")
-            shared_data["message"] = req_data.get("message", "N/A")
-            shared_data["sender"] = req_data.get("sender", "N/A")
+            sender = req_data.get("sender", "Anonymous").strip()
+            message = req_data.get("message", "").strip()
             
-            return jsonify({
-                "status": "success",
-                "received": shared_data
-            }), 201
+            if not message:
+                return jsonify({"status": "error", "message": "Message cannot be empty"}), 400
+                
+            # Add message to history
+            new_chat = {"sender": sender, "message": message}
+            chat_history.append(new_chat)
+            
+            # Keep history size manageable (last 50 messages)
+            if len(chat_history) > 50:
+                chat_history.pop(0)
+                
+            return jsonify({"status": "success", "sent": new_chat}), 201
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
             
-    # GET request returns the last saved code
-    return jsonify(shared_data), 200
+    # GET returns the whole history
+    return jsonify(chat_history), 200
 
 if __name__ == '__main__':
-    # Render requires your app to bind to 0.0.0.0 and a dynamic PORT
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
